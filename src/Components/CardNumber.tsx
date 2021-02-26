@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactTooltip from 'react-tooltip'
-import { ICardState, initialCardState } from 'src/Interfaces'
+import { TCardNum, ICardState, ICaretState, initialCardState } from 'src/Interfaces'
 import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import { hideTooltip} from "./Card"
 const CARDS = {
@@ -24,37 +24,43 @@ export const cardType = (cardNumber: string): string => {
 			return card;
 		}
 	}
-	return 'visa'; // default type
+	return 'no-name'; // default type
 }
 /**
-	 * maskCardNum
+	 * maskCardNumber
 	 * depending on mask param Card Number is visible or partially hidden
-	 * @param cardNum 
+	 * @param cardMaskState 
 	 * @param mask 
 	 */
-export const maskCardNum = (cn: string, mask = true): string[] => {
+export const maskCardNumber = (cn: string, mask = true): string[] => {
 	const pattern = mask ? '$1 **** **** $4' : '$1 $2 $3 $4';
 	cn = (cn + '####********####'.slice(cn.length)).slice(0, 19);
 	return (cn.replace(/(.{4,4})(.{4,4})(.{4,4})(.{4,4}).*/, pattern)).split('');
 }
 export interface ICardNumber{
-	cardNum: {
-		state: ICardState;
+	cn: {
+    state: ICardState;
+    caretState: ICaretState;
 		cardNumberRef: React.RefObject<HTMLLabelElement>;
 		onCardElementClick: (event: React.MouseEvent<HTMLElement, MouseEvent> | null, key: string) => void;
-		cardNum: string[];
-		setCardNum: React.Dispatch<React.SetStateAction<string[]>>;
+		cardMaskState: TCardNum;
+		setCardMaskState: React.Dispatch<React.SetStateAction<TCardNum>>;
 	}
 }
+
+// =========================================
 // -------- CardNumber Component -----------
+// =========================================
+
 export const CardNumber: React.FC<ICardNumber> = (
-	{ cardNum: {
+	{ cn: {
 		state,
+		caretState,
 		cardNumberRef,
 		onCardElementClick,
-		cardNum,
-		setCardNum } }: ICardNumber) => {
-	
+		cardMaskState,
+		setCardMaskState } }: ICardNumber) => {
+
 	/**
 	 * mouseEnterCN
 	 * tooltip should be visible only before an element gets focus in order
@@ -67,29 +73,45 @@ export const CardNumber: React.FC<ICardNumber> = (
 			return
 		}
 		// show tooltip only if none of the elements is in focus
-		if (state.cardNumber === initialCardState.cardNumber) {
+		if (state.cardNumber === initialCardState.cardNumber && !state.selectedLabel) {
 			ReactTooltip.show(cnc)
 			hideTooltip(cnc, 2000)
 		// if some element is in focus suppress tooltip as it was already shown earlier
 		} else {
 			ReactTooltip.hide(cnc)
-			setCardNum(maskCardNum(state.cardNumber, false));
+			setCardMaskState(maskCardNumber(state.cardNumber, false));
 			if (state.cardNumber !== initialCardState.cardNumber && cardNumberRef.current) {
 				cardNumberRef.current.classList.add('yellow');
 			}
 		}
 	}
 
+	// const maskPosToInputBoxPos = (maskIx: number) => {
+	// 	const nSpaces = '#### **** **** ####'.slice(0, maskIx+1).replace(/\S/g,'').length
+	// 	return maskIx - nSpaces
+	// }
 	/**
 	 * mouseLeaveCN
 	 * restore Card Number is masked state
 	 */
 	const mouseLeaveCN = () => {
-		setCardNum(maskCardNum(state.cardNumber));
+		setCardMaskState(maskCardNumber(state.cardNumber));
 		if (state.cardNumber !== initialCardState.cardNumber && cardNumberRef.current) {
 			cardNumberRef.current.classList.remove('yellow');
 		}
 	}
+
+	const p = caretState.cardNumber.pos
+	const maskPos = caretState.cardNumber.delta === -1
+		? [-1,0,1, 2, 3, 5, 6, 7, 8, 10, 11, 12,13, 15, 16, 17, 18, 19,19,19][p != null ? p : 0]
+		: caretState.cardNumber.delta === 1
+			? [-1, 0,1,2,3,  5,6,7,8, 10,11,12,13, 15,16,17,18, 18][p != null ? p : 0]
+			: Math.min((p + Math.floor(p / 4 -1)), 18)
+  
+	const equal = (ix: number) => {
+		return ix===maskPos
+	}
+	
 	return (
 		<>
 			<div className="card-item__top">
@@ -115,20 +137,24 @@ export const CardNumber: React.FC<ICardNumber> = (
 				data-tip='Click to enter Card Number'
 				data-place='top'
 				data-effect='solid'
-				data-offset="{'top': -30, 'left': 10}"
+				data-offset="{'top': -20, 'left': 10}"
 			>
 				<TransitionGroup
 					className="slide-fade-up"
 					component="div"
 				>
-					{cardNum.map((val, ix) => (
+					{cardMaskState.map((val, maskIx) => (
 						<CSSTransition
 							classNames="slide-fade-up"
 							timeout={250}
-							key={ix}
+							key={maskIx}
 						>
-							<div className={`card-item__numberItem ${state.selectedLabel === 'cardNumber' && ix+1===state.caretPosition? 'yn-bold':null}`}>
-								{val}
+							<div className={`card-item__numberItem ${state.selectedLabel === 'cardNumber' && equal(maskIx) ? 'yn-bold':null}`}>
+								{
+									[4, 9, 14].includes(maskPos) && equal(maskIx)
+										? <span className='underscore'>_</span>
+										: val
+								}
 							</div>
 						</CSSTransition>
 					))

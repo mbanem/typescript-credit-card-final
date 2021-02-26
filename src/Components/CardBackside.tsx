@@ -6,24 +6,27 @@ import { BACKGROUND_IMG } from './Card'
 export interface IBackSideProps{
 	bs: {
 		state: ICardState
-		cvcNumberRef: React.RefObject<HTMLDivElement>;
+		cardCvcRef: React.RefObject<HTMLDivElement>;
 	}
 }
-export const CardBackside: React.FC<IBackSideProps> = ({ bs: { state, cvcNumberRef } }: IBackSideProps) => {
+// ==========================================
+// -------- CardBackside Component ----------
+// ==========================================
+export const CardBackside: React.FC<IBackSideProps> = ({ bs: { state, cardCvcRef } }: IBackSideProps) => {
 	/**
 	 * make cvc visible on mouse enter
 	 */
 	const onMouseEnterCvc = () => {
-		if (cvcNumberRef.current) {
-			cvcNumberRef.current.innerText = state.cardCvc;
+		if (cardCvcRef.current) {
+			cardCvcRef.current.innerText = state.cardCvc;
 		}
 	}
 	/**
 	 * mask cvc with ***
 	 */
 	const onMouseLeaveCvc = () => {
-		if (cvcNumberRef.current) {
-			cvcNumberRef.current.innerText = '***';
+		if (cardCvcRef.current) {
+			cardCvcRef.current.innerText = '***';
 		}
 	}
 	return (
@@ -43,7 +46,7 @@ export const CardBackside: React.FC<IBackSideProps> = ({ bs: { state, cvcNumberR
 					onMouseLeave={onMouseLeaveCvc}
 				>
 					<div className='card-item__cvcNumber'
-						ref={cvcNumberRef}
+						ref={cardCvcRef}
 					>
 						<TransitionGroup>
 							{state.cardCvc.toString().split('').map((val, index) => (

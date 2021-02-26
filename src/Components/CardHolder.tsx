@@ -1,22 +1,28 @@
 import React from 'react';
 import ReactTooltip from 'react-tooltip'
 import {CSSTransition, TransitionGroup } from 'react-transition-group'
-import { ICardState, initialCardState } from 'src/Interfaces';
+import { ICardState, ICaretState, initialCardState } from 'src/Interfaces';
 import { hideTooltip} from "./Card"
 
 export interface ICardHolderProps{
 	ch: {
-		state: ICardState;
+    state: ICardState;
+    caretState: ICaretState;
 		cardHolderRef: React.RefObject<HTMLLabelElement>;
-		onCardElementClick: (event: React.MouseEvent<HTMLElement, MouseEvent> | null, key: string) => void;
+    onCardElementClick: (event: React.MouseEvent<HTMLElement, MouseEvent> | null, key: string) => void;
 	}
 }
+
+// ==========================================
+// -----------  Card Holder Component -------
+// ==========================================
+
 export const CardHolder: React.FC<ICardHolderProps> = (
 	{ ch: { 
 		state,
+		caretState,
 		cardHolderRef,
 		onCardElementClick,
-
 	} }: ICardHolderProps) => {
 	
 	/**
@@ -25,7 +31,7 @@ export const CardHolder: React.FC<ICardHolderProps> = (
 	 */
 	const mouseEnterCH = () => {
 		const ch = cardHolderRef.current;
-		if (!ch) return
+		if (!ch || state.selectedLabel) return
 		if (state.cardHolder === initialCardState.cardHolder) {
 			ReactTooltip.show(ch)
 			hideTooltip(ch, 4000)
@@ -68,7 +74,7 @@ export const CardHolder: React.FC<ICardHolderProps> = (
 								>
 									<span className={`card-item__nameItem 
 										${state.selectedLabel === 'cardHolder' &&
-										ix + 1 === state.caretPosition ? 'yh-bold' : null}`}
+										ix + 1 === caretState.cardHolder.pos ? 'yh-bold' : null}`}
 									>
 										{val===' ' ? <span className='underscore'>_</span> : val}
 									</span>

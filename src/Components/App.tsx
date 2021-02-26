@@ -7,6 +7,7 @@ export const App: React.FC = () => {
 	const [state, setState] = React.useState<IAppState>(initialAppState);
 	console.log(state.cardHolder);
   
+	// fire when Credit Card is completely filled and verified to send to the main app
 	const updateAppState = (stateObj: IAppState) => {
 		setState(stateObj);
 		console.log('stateObj', stateObj);
