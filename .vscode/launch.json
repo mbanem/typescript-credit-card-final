@@ -7,8 +7,9 @@
     {
       "type": "chrome",
       "request": "launch",
-      "name": "Launch Chrome against localhost",
-      "url": "http://localhost:3009",
+   .0   "name": "Launch Chrome against localhost",
+     -+
+		  "url": "http://localhost:3009",
       "webRoot": "${workspaceFolder}/src"
     }
   ]

@@ -26,7 +26,7 @@ export const CardExpiration: React.FC<ICardExpirationProps> = (
 	 */
 	const mouseEnterDate = () => {
 		const dt = cardMonthRef.current
-		if (!dt) return
+		if (!dt || state.selectedLabel) return
 		if (state.cardMonth === initialCardState.cardMonth && state.cardYear === initialCardState.cardYear
 			&& (state.selectedLabel === '' || !'cardMonth|cardYear'.includes(state.selectedLabel))) {
 			ReactTooltip.show(dt)
@@ -44,7 +44,7 @@ export const CardExpiration: React.FC<ICardExpirationProps> = (
 			data-tip={`Click on MM/YY<br>to select`}
 			data-place='top'
 			data-effect='solid'
-			data-offset="{'top': -30, 'left': 10}"
+			data-offset="{'top': -20, 'left': 10}"
 		>
 			<label className="card-item__dateTitle">
 			Expires

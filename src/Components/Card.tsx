@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react'
 
 import ReactTooltip from 'react-tooltip'
-import { IAppState, ICardState, initialCardState, IStyle, initialStyle } from '../Interfaces'
+import { IAppState, ICardState, initialCardState, IStyle, initialStyle, TCardNum, ICaretState, initialCaretState } from '../Interfaces'
 import { MonthWidget } from './MonthWidget'
 import { YearWidget } from './YearWidget'
-import { CardNumber, cardType, maskCardNum } from './CardNumber'
+import { CardNumber, cardType, maskCardNumber } from './CardNumber'
 import { CardHolder } from './CardHolder'
-import { getCaretPosition } from '../Utils/ShowCaretPosition';
 import { CardBackground } from './CardBackground'
 import { CardExpiration } from './CardExpiration'
 import { CardBackside } from './CardBackside'
@@ -18,7 +17,7 @@ type DRef = HTMLDivElement | null
 type IRef = HTMLInputElement | null
 
 export interface ICardProps {
-  setAppState: (state: IAppState) => void
+  setAppState: (state: IAppState) => void,
 }
 // todo find more images
 export const BACKGROUND_IMG = '/card-background/0.jpeg'
@@ -46,11 +45,29 @@ export const hideTooltip = (ref: HTMLDivElement | HTMLLabelElement | null, inter
 		ref && ReactTooltip.hide(ref)
 	}, interval)
 }
+/**
+	 * set css class for rounded border box around a given element
+	 * @param element 
+	 */
+const outlineElementStyle = (element: HTMLLabelElement | HTMLDivElement) => {
+	if (element)  {
+		return {
+			width: `${element.offsetWidth}px`,
+			height: `${element.offsetHeight}px`,
+			transform: `translateX(${element.offsetLeft}px) translateY(${element.offsetTop}px)`
+		}
+	}
+	return null;
+}
+// ===========================================
 // ------------  THE CARD APP ----------------
-export const Card: React.FC<ICardProps> = (props: ICardProps) => {
+// ===========================================
+
+export const Card: React.FC<ICardProps> = ({setAppState}: ICardProps) => {
 	const [style, setStyle] = useState<IStyle>(initialStyle)
 	const [state, setState] = useState<ICardState>(initialCardState)
-  
+	const [cardMaskState, setCardMaskState] = useState<TCardNum>(maskCardNumber(state.cardNumber))
+	const [caretState, setCaretState] = useState<ICaretState>(initialCaretState)
 	const cardNumberRef = useRef<HTMLLabelElement>(null)
 	const cardHolderRef = useRef<HTMLLabelElement>(null)
 	const cardCvcRef = useRef<HTMLLabelElement>(null)
@@ -65,7 +82,57 @@ export const Card: React.FC<ICardProps> = (props: ICardProps) => {
 	const flipRef = useRef<HTMLDivElement>(null)
 
 	const inputBoxRef = useRef<HTMLInputElement>(null)
-
+	/**
+	 * refFromKey
+	 * state items are based on keys and supporting UI references
+	 * are key+Ref so from the key we get reference to its UI elements
+	 */
+	const refFromKey = {
+		cardNumber: cardNumberRef,
+		cardHolder: cardHolderRef,
+		cardMonth: cardMonthRef,
+		cardYear: cardYearRef,
+		cardCvc: cardCvcRef,
+		monthWidget: monthWidgetRef,
+		yearWidget: yearWidgetRef,
+	}
+  
+	/**
+	 * sets css for rounded bordered box when style state is set to
+	 * and makes visible flip and done buttons when appropriate entries are make
+	 */
+	useEffect(() => {
+		if ( state.currentElementRef && state.currentElementRef.current) {
+			const style = outlineElementStyle(state.currentElementRef.current);
+			if (style) {
+				setStyle(style);
+			}
+			setDoneButtonVisibility();
+		}
+	}, [state])
+  
+	/**
+	 * updateAppState - after user completes CreditCard sends data to main app
+	 */
+	const updateAppState = () => {
+		// return
+		const apps = {
+			cardNumber: state.cardNumber.replace(/(\d4,4})/g, '$1 ').trimRight(),
+			cardHolder: capitalize(state.cardHolder),
+			cardMonth: state.cardMonth,
+			cardYear: state.cardYear,
+			cardCvc: state.cardCvc,
+		}
+		setAppState(apps)
+		doneRef.current?.classList.add('hide')
+		flipRef.current?.classList.add('hide')
+		if (state.isCardFlipped) {
+			flipCard(false)
+		}
+		setState({ ...state, ...initialCardState })
+		setCardMaskState(maskCardNumber(''))
+	}
+  
 	const maxEntryLength = { cardNumber: 16, cardHolder: 25, cardMonth: 2, cardYear: 2, cardCvc: 3 }
 	const isValid = {
 		cardNumber: (str: string) => {
@@ -75,14 +142,20 @@ export const Card: React.FC<ICardProps> = (props: ICardProps) => {
 					: [false, 'Only digits are allowed`']
 				: [true,'partial card number']
 		},
-		cardHolder: (char: string) => /^[A-Za-z- ]*$/.test(char) ? [true, ''] : [false, 'Only letters, spaces amd dashes'],
+		cardHolder: (char: string) => {
+			if (state.cardHolder === initialCardState.cardHolder) {
+				setState({...state, cardHolder:''})
+			}
+			return /^[A-Za-z- ]*$/.test(char) ? [true, ''] : [false, 'Only letters, spaces amd dashes']
+		},
 		// amex uses 4-digit cvc and others 3-digit cvc
 		cardCvc: (char: string) => {
 			const ref = inputBoxRef.current
 			const inputLnt = ref ? ref.value.length : 0
 			const type = cardType(state.cardNumber)
 			const lnt = type === 'amex' ? 4 : 3
-			return (/^[0-9]+$/.test(char) && (inputLnt <= lnt)) ? [true, ''] : [false, `Up to ${lnt + 1} digits allowed'`]
+			// if valid set true/false as error in case cvc is of full length 3 or 4
+			return (/^[0-9]+$/.test(char) && (inputLnt <= lnt)) ? [true, inputLnt === lnt] : [false, `Up to ${lnt + 1} digits allowed'`]
 		}
 	}
 	const nameValidator: TValidate = (value: string): [boolean, string] => {
@@ -98,6 +171,17 @@ export const Card: React.FC<ICardProps> = (props: ICardProps) => {
 			return [false, 'Only letters spaces and dashes']
 		}
 		return [true, '']
+	}
+	const isCardFilledOut = () => {
+		const [valid, error] = isValid['cardCvc'](state.cardCvc)
+		if (valid  && error &&
+      isValid['cardNumber'](state.cardNumber)[0] &&
+      isValid['cardHolder'](state.cardHolder)[0] &&
+      state.cardMonth && state.cardYear &&
+      doneRef.current)
+		{
+			doneRef.current.classList.remove('hide')
+		}
 	}
 	/**
 	 * setError - ignores keystroke do to error
@@ -129,8 +213,10 @@ export const Card: React.FC<ICardProps> = (props: ICardProps) => {
     
 		if (fb) {
 			if (tf) {
-				fb.classList.remove('hide')
-				flipCard(false)
+				setTimeout(() => {
+					flipRef.current && flipRef.current.classList.remove('hide')
+				}, 1000)
+				// flipCard(false)
 			} else {
 				fb.classList.add('hide')
 			}
@@ -150,28 +236,27 @@ export const Card: React.FC<ICardProps> = (props: ICardProps) => {
 			if (tf) {
 				db.classList.remove('hide')
 			} else {
-				db.classList.add('hide')
+				setTimeout(() => { db.classList.add('hide') }, 1000)
 			}
 		}    
 	}
-
-	/**
-	 * to handle mouseEnter for Card Number separate state is used
-	 * to avoid saving masked card number is regular state as users
-	 * can change focus at any time and then we need to set correct 
-	 * state card number in the state again
-	 */
-	const [cardNum, setCardNum] = useState<string[]>(maskCardNum(state.cardNumber));
 	
 	/**
-	 * handleInput - input box React onChange handler
+	 * handleInputOnChange - input box React onChange handler
 	 * controls allowed chars and renders error if any
 	 * @param event.target.value 
 	 */
-	const handleInput = ({ target: { value } }: React.ChangeEvent<HTMLInputElement>): void => {
+	const handleInputOnChange = (event: React.ChangeEvent<HTMLInputElement>): void => {	
+		event.preventDefault()
+		event.stopPropagation()
+		const { target: { value } } = event
+		// console.log('value', value)
 		const key = state.selectedLabel
 		const err = errorMsgRef.current
-		// ignore keystrokes if out of max length
+		const pos = inputBoxRef.current ? inputBoxRef.current?.selectionStart : 0
+		setCaretState({ ...caretState, [key]: { pos, delta: 0 } })
+    
+		// ignore keystrokes if out of max length by setting old value in input box
 		if (value.length > maxEntryLength[key] && inputBoxRef.current) {
 			inputBoxRef.current.value = state[key]
 			return
@@ -193,42 +278,38 @@ export const Card: React.FC<ICardProps> = (props: ICardProps) => {
 				return
 			}
 		}
-		setState({ ...state, [key]: value })
+		setState({ ...state, [key]: value})
 		if (key === 'cardNumber') {
-			setCardNum(maskCardNum(value))
+			setCardMaskState(maskCardNumber(value))
 		}
 		if (err && !err.classList.contains('hide')) {
 			err.classList.add('hide')
 		}
 	}
+	isCardFilledOut()
 	/**
- * highlightCaretPosition based on input caret positions
- * highlights char in label adding caret as border-right vertical line
- * @param event 
- */
+	* highlightCaretPosition based on input caret positions
+	* highlights char in label adding caret as border-right vertical line
+	* @param event 
+	*/
+	// const highlightCaretPosition = () => {
+	const DELTA = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: 0, ArrowDown: 0, PageDown: 1, PageUp: 0, End: 1, Home: 0 }
 	const highlightCaretPosition = (event: React.KeyboardEvent<HTMLInputElement>) => {
-		const ref = inputBoxRef.current
-		const pos = getCaretPosition(event, ref, state.selectedLabel)
-		if (ref) {
-			ref.value = ref.value.trim()
+		event.preventDefault()
+		event.stopPropagation()
+		let pos = inputBoxRef.current?.selectionStart
+		if (pos === null || pos === undefined) {
+			pos = 0
 		}
-		if (pos > 0) {
-			setState({ ...state, caretPosition: pos })
-		}
+		// let d = 0
+		// if (d===0 && /(Arrow|Up|Down|End|Home)/.test(event.code)) {
+		// 	d = 1
+		// }
+		setCaretState({
+			...caretState, [state.selectedLabel]: { pos: pos, delta:  DELTA[event.code] || 0}
+		})
 	}
-	/**
-	 * updateAppState - after user completes CreditCard sends data to main app
-	 */
-	const updateAppState = () => {
-		const apps = {
-			cardNumber: state.cardNumber.replace(/(\d4,4})/g, '$1 ').trimRight(),
-			cardHolder: capitalize(state.cardHolder),
-			cardMonth: state.cardMonth,
-			cardYear: state.cardYear,
-			cardCvc: state.cardCvc,
-		}
-		props.setAppState(apps)
-	}
+
 	/**
 	 * setStateDate clicked Month/Year is saved in state and hide the widget
 	 * @param event 	- holds reference to clicked number
@@ -238,22 +319,11 @@ export const Card: React.FC<ICardProps> = (props: ICardProps) => {
 	const setStateDate = (event: React.MouseEvent<HTMLDivElement, MouseEvent>, dateKey: string, refWidgetKey: string) => {
 		const d = event.target as HTMLDivElement;
 		const value = `0${d.innerText}`.slice(-2); // leading zero if single digit
-		setState({ ...state, [dateKey]: value });
-		refFromKey[refWidgetKey].current.classList.toggle('hide');
-	}
-	/**
-	 * refFromKey
-	 * state items are based on keys and supporting UI references
-	 * are key+Ref so from the key we get reference to its UI elements
-	 */
-	const refFromKey = {
-		cardNumber: cardNumberRef,
-		cardHolder: cardHolderRef,
-		cardMonth: cardMonthRef,
-		cardYear: cardYearRef,
-		cardCvc: cardCvcRef,
-		monthWidget: monthWidgetRef,
-		yearWidget: yearWidgetRef,
+		
+		if (d.innerText.length <= 2) {
+			setState({ ...state, [dateKey]: value });
+			refFromKey[refWidgetKey].current.classList.toggle('hide');
+		}
 	}
 
 	/**
@@ -264,21 +334,20 @@ export const Card: React.FC<ICardProps> = (props: ICardProps) => {
 	 * @param key 
 	 */
 	const onCardElementClick = (event: React.MouseEvent<HTMLElement, MouseEvent> | null, key: string) => {
-	
-		ReactTooltip.hide(refFromKey[key].current)
-		const input = inputBoxRef.current
 		// could be called out of existing event, so if event is present we stop bubbling
 		// as clicking on YY will propagate to MM and MM will be left asa event context
 		if (event) {
 			event.stopPropagation();
 		}
+		ReactTooltip.hide(refFromKey[key].current)
+		const input = inputBoxRef.current
 		if (!input) return
+		input.selectionStart = caretState[key].pos
 		setState({
 			...state,
 			selectedLabel: key,
 			previousElementRef: state.currentElementRef,
 			currentElementRef: refFromKey[key === 'cardYear' ? 'cardMonth' : key],
-			caretPosition: -1,
 		})
 		// if Month or Year is selected show select Block instead of input inputBox
 		if ('cardMonth|cardYear'.includes(key)) {
@@ -294,10 +363,34 @@ export const Card: React.FC<ICardProps> = (props: ICardProps) => {
 			if (ref) {
 				ref.classList.toggle('hide');
 			}
-		} else if (key === 'cardHolder' && event && event.ctrlKey) {
-			if (cardHolderRef.current) {
-				ReactTooltip.hide(cardHolderRef.current)
+		} else if (key === 'cardNumber') {
+			// if (cardNumberRef.current) {
+			// 	ReactTooltip.hide(cardNumberRef.current)
+			// }
+			let cNum = event?.ctrlKey
+				? Math.floor(Math.random() * Math.pow(10, 16)).toString()
+				: state.cardNumber === initialCardState.cardNumber
+					? ''
+					: state.cardNumber
+			if (cNum[0] === '0') {
+				cNum = '4'+ cNum.slice(1)
 			}
+			setState({
+				...state,
+				cardNumber: cNum,
+				selectedLabel: 'cardNumber',
+				currentElementRef: cardNumberRef
+			})
+			setCardMaskState( maskCardNumber(cNum))
+			setTimeout(() => {
+				input.value = cNum
+				input.selectionStart = input.value.length+1
+			}, 1000)
+		}		
+		else if (key === 'cardHolder' && event && event.ctrlKey) {
+			// if (cardHolderRef.current) {
+			// 	ReactTooltip.hide(cardHolderRef.current)
+			// }
 			setState({
 				...state,
 				cardHolder: state.userName,
@@ -308,16 +401,12 @@ export const Card: React.FC<ICardProps> = (props: ICardProps) => {
 				input.value = state.userName+' '
 				input.selectionStart = input.value.length+1
 				// setState({ ...state, caretPosition: input.value.length })
-				// input.selectionStart = input.value.length - 1
+				input.selectionStart = caretState[key].pos
 			}, 1000)
 		}
-		
 		// console.log('state[key]', key,state[key]);
-		
-		// if (input) {
 		input.value = state[key] === initialCardState[key] ? '' : state[key];
 		input.focus();
-		// }
 	}
 
 
@@ -360,58 +449,32 @@ export const Card: React.FC<ICardProps> = (props: ICardProps) => {
 	// 	return cardType();
 	// }, [state.cardNumber])
 
-	/**
-	 * set css class for rounded border box around a given element
-	 * @param element 
-	 */
-	const outlineElementStyle = (element: HTMLLabelElement | HTMLDivElement) => {
-		return element
-			? {
-				width: `${element.offsetWidth}px`,
-				height: `${element.offsetHeight}px`,
-				transform: `translateX(${element.offsetLeft}px) translateY(${element.offsetTop}px)`
-			}
-			: null;
-	}
-
-	/**
-	 * sets css for rounded bordered box when style state is set to
-	 * and makes visible flip and done buttons when appropriate entries are make
-	 */
-	useEffect(() => {
-		if ( state.currentElementRef && state.currentElementRef.current) {
-			const style = outlineElementStyle(state.currentElementRef.current);
-			if (style) {
-				setStyle(style);
-			}
-			setDoneButtonVisibility();
-		}
-	}, [state])
-
 	return (
 		<>
 			<div className={'card-item ' + (state.isCardFlipped ? '-active' : '')}>
 				<div className="card-item__side -front">
 					<CardBackground cb={{ state, style}}/>
 					<div className="card-item__wrapper">
-						<CardNumber cardNum={{state,cardNumberRef,onCardElementClick,cardNum,setCardNum	}} />
+						<CardNumber cn={{state, caretState, cardNumberRef, onCardElementClick, cardMaskState, setCardMaskState	}} />
 						<div className="card-item__content">
-							<CardHolder ch={{state, cardHolderRef, onCardElementClick}}/>
+							<CardHolder ch={{state, caretState, cardHolderRef, onCardElementClick }}/>
 							<CardExpiration ce={{state,cardMonthRef,cardYearRef,onCardElementClick}}/>
 						</div>
 					</div>
-					<div className="card-input">
+					{/* <div className="card-input">
 						<input
 							type="text"
 							className='input-box'
 							maxLength={40}
 							autoComplete="off"
 							name="inputBox"
-							onChange={handleInput}
+							onChange={handleInputOnChange}
 							ref={inputBoxRef}
 							onKeyUp={highlightCaretPosition}
 						/>
-					</div>
+					</div> */}
+					{/* <div ref={doneRef} className='done-button hide' onClick={updateAppState}>done</div>
+					<div ref={flipRef} className='flipper-button hide' onClick={()=>flipCard(true)}>flip card</div> */}
 				</div>
 
 				<CardBackside bs={{ state, cvcNumberRef }}/>
@@ -419,15 +482,14 @@ export const Card: React.FC<ICardProps> = (props: ICardProps) => {
 				
 				<div className="month-block hide"
 					ref={monthWidgetRef}
-					onClick={(evt) => setStateDate(evt, 'cardMonth','monthWidget')}
+					// onClick={(evt) => setStateDate(evt, 'cardMonth','monthWidget')}
 				>
-					<MonthWidget />
+					<MonthWidget mw={{setStateDate}}/>
 				</div>
 				<div className="year-block hide"
 					ref={yearWidgetRef}
-					onClick={(evt) => setStateDate(evt, 'cardYear','yearWidget')}
 				>
-					<YearWidget />
+					<YearWidget yw={{setStateDate}}/>
 				</div>
 				<ReactTooltip className='tooltip-expire'
 					multiline={true}
@@ -435,6 +497,19 @@ export const Card: React.FC<ICardProps> = (props: ICardProps) => {
 					delayHide={600}/>
 				<div ref={doneRef} className='done-button hide' onClick={updateAppState}>done</div>
 				<div ref={flipRef} className='flipper-button hide' onClick={()=>flipCard(true)}>flip card</div>
+			</div>
+			<div className="card-input">
+				<input
+					type="text"
+					className='input-box'
+					maxLength={40}
+					placeholder="INPUT BOX"
+					autoComplete="off"
+					name="inputBox"
+					onChange={handleInputOnChange}
+					ref={inputBoxRef}
+					onKeyUp={highlightCaretPosition}
+				/>
 			</div>
 		</>
 	)

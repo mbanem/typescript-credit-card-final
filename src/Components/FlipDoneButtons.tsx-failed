@@ -1,0 +1,37 @@
+import React from 'react';
+import { SwitchTransition, CSSTransition } from 'react-transition-group';
+// call from Parent component
+// <FlipDoneButtons fdb:{doneRef, flipRef, flipCard, updateAppState}={state.cardHolder} />
+export interface IFlipDoneButtonsProps{
+	fdb:{
+		doneRef: React.RefObject<HTMLDivElement>, 
+		flipRef: React.RefObject<HTMLDivElement>, 
+		flipCard: (checkDoneButton: boolean) => void, 
+		updateAppState: () => void,
+	};
+}
+export const FlipDoneButtons:React.FC<IFlipDoneButtonsProps> = (
+	{fdb:{
+		doneRef, 
+		flipRef, 
+		flipCard, 
+		updateAppState}
+	}:IFlipDoneButtonsProps) => {
+	return (
+		<>
+			<SwitchTransition in-out>
+				<CSSTransition
+					classNames="slide-fade-up"
+					timeout={200}
+				>
+					<>
+						{/* <div ref={doneRef} className='done-button ' onClick={updateAppState}>done</div> */}
+						<div ref={flipRef} className='flipper-button ' onClick={() => flipCard(true)}>flip card</div>
+					</>
+				</CSSTransition>
+			</SwitchTransition>
+		</>
+	)
+}
+
+// <FlipDoneButtons fdb={{doneRef, flipRef, flipCard, updateAppState}}/>
