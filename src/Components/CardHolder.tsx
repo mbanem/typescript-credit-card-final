@@ -2,7 +2,7 @@ import React from 'react';
 import ReactTooltip from 'react-tooltip'
 import {CSSTransition, TransitionGroup } from 'react-transition-group'
 import { ICardState, ICaretState, initialCardState } from 'src/Interfaces';
-import { hideTooltip} from "./Card"
+import { hideTooltip} from "../Utils"
 
 export interface ICardHolderProps{
 	ch: {

@@ -61,10 +61,10 @@ export const initialAppState = {
 export interface IStyle {
 	width: string
 	height: string
-	transform: any
+  transform: string
 }
 export const initialStyle = {
 	width: '100%',
 	height: '100%',
-	transform: null,
+	transform: '',
 }

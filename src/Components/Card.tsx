@@ -11,6 +11,7 @@ import { CardExpiration } from './CardExpiration'
 import { CardBackside } from './CardBackside'
 import { setTimeout } from 'timers'
 import '../Styles/styles.scss'
+import { outlineElementStyle, capitalize } from 'src/Utils'
 
 type TValidate = (str: string) => [boolean, string]
 type DRef = HTMLDivElement | null
@@ -23,42 +24,7 @@ export interface ICardProps {
 export const BACKGROUND_IMG = '/card-background/0.jpeg'
 
 // cannot persuade typescript that a function could return string | string[] based on flag
-export const formatCardNumber = (cn: string, mask = true): string[] => {
-	const pattern = mask ? '$1 **** **** $4' : '$1 $2 $3 $4'
-	cn = (cn + '####********####'.slice(cn.length)).slice(0, 19)
-	return (cn.replace(/(.{4,4})(.{4,4})(.{4,4})(.{4,4}).*/, pattern)).split('')
-}
-/**
- * Allows single spaces and dashed with no spaces around
- * @param value string to capitalize
- */
-export const capitalize = (value: string): string => {
-	return value.replace(/\s{2,}/g,' ').replace(/\s*-\s*/g,'-').replace(/^[a-z]|[ -][a-z]/g, (c) => c.toUpperCase())
-}
-/**
-	 * allow specific tooltip for given interval necessary to easily read the tip
-	 * @param ref 
-	 * @param interval 
-	 */
-export const hideTooltip = (ref: HTMLDivElement | HTMLLabelElement | null, interval: number):void => {
-	setTimeout(() => {
-		ref && ReactTooltip.hide(ref)
-	}, interval)
-}
-/**
-	 * set css class for rounded border box around a given element
-	 * @param element 
-	 */
-const outlineElementStyle = (element: HTMLLabelElement | HTMLDivElement) => {
-	if (element)  {
-		return {
-			width: `${element.offsetWidth}px`,
-			height: `${element.offsetHeight}px`,
-			transform: `translateX(${element.offsetLeft}px) translateY(${element.offsetTop}px)`
-		}
-	}
-	return null;
-}
+
 // ===========================================
 // ------------  THE CARD APP ----------------
 // ===========================================
@@ -74,7 +40,6 @@ export const Card: React.FC<ICardProps> = ({setAppState}: ICardProps) => {
 
 	const cardMonthRef = useRef<HTMLDivElement>(null)
 	const cardYearRef = useRef<HTMLDivElement>(null)
-	// const cvcNumberRef = useRef<HTMLDivElement>(null)
 	const monthWidgetRef = useRef<HTMLDivElement>(null)
 	const yearWidgetRef = useRef<HTMLDivElement>(null)
 	const errorMsgRef = useRef<HTMLDivElement>(null)
@@ -179,7 +144,6 @@ export const Card: React.FC<ICardProps> = ({setAppState}: ICardProps) => {
       doneRef.current)
 		{
 			doneRef.current.classList.remove('hide')
-			console.log('isCardFilledOut done visible', )
 		}
 	}
 	/**
@@ -212,12 +176,9 @@ export const Card: React.FC<ICardProps> = ({setAppState}: ICardProps) => {
 			if (tf) {
 				setTimeout(() => {
 					flipRef.current && flipRef.current.classList.remove('hide')
-					console.log('setFlipButtonVisibility flip visible', )
 				}, 100)
-				// flipCard(false)
 			} else {
 				fb.classList.add('hide')
-				console.log('setFlipButtonVisibility flip hidden', )
 			}
 		}
 		return tf
@@ -233,9 +194,7 @@ export const Card: React.FC<ICardProps> = ({setAppState}: ICardProps) => {
 		if (db) {
 			if (tf) {
 				db.classList.remove('hide')
-				console.log('setDoneButtonVisibility done visible', )
 			} else {
-				console.log('setDoneButtonVisibility timeout done to hide', )
 				setTimeout(() => { db.classList.add('hide') }, 100)
 			}
 		}    
@@ -383,6 +342,9 @@ export const Card: React.FC<ICardProps> = ({setAppState}: ICardProps) => {
 			}, 100)
 		}		
 		else if (key === 'cardHolder' && event && event.ctrlKey) {
+			if (event?.ctrlKey) {
+				errorMsgRef.current?.classList.add('hide')
+			}
 			setState({
 				...state,
 				cardHolder: state.userName,
@@ -464,8 +426,6 @@ export const Card: React.FC<ICardProps> = ({setAppState}: ICardProps) => {
 							onKeyUp={highlightCaretPosition}
 						/>
 					</div>
-					{/* <div ref={doneRef} className='done-button hide' onClick={updateAppState}>done</div>
-					<div ref={flipRef} className='flipper-button hide' onClick={()=>flipCard(true)}>flip card</div> */}
 				</div>
 
 				<CardBackside bs={{ state, cardCvcRef }}/>
@@ -489,19 +449,6 @@ export const Card: React.FC<ICardProps> = ({setAppState}: ICardProps) => {
 				<div ref={doneRef} className='done-button hide' onClick={updateAppState}>done</div>
 				<div ref={flipRef} className='flipper-button hide' onClick={()=>flipCard(true)}>flip card</div>
 			</div>
-			{/* <div className="card-input">
-				<input
-					type="text"
-					className='input-box'
-					maxLength={40}
-					placeholder="INPUT BOX"
-					autoComplete="off"
-					name="inputBox"
-					onChange={handleInputOnChange}
-					ref={inputBoxRef}
-					onKeyUp={highlightCaretPosition}
-				/>
-			</div> */}
 		</>
 	)
 }

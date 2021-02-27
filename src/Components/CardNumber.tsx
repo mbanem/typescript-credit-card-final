@@ -2,7 +2,7 @@ import React from 'react'
 import ReactTooltip from 'react-tooltip'
 import { TCardNum, ICardState, ICaretState, initialCardState } from 'src/Interfaces'
 import { CSSTransition, TransitionGroup } from 'react-transition-group'
-import { hideTooltip} from "./Card"
+import { hideTooltip} from "../Utils"
 const CARDS = {
 	visa: '^4',
 	amex: '^(34|37)',
@@ -24,7 +24,7 @@ export const cardType = (cardNumber: string): string => {
 			return card;
 		}
 	}
-	return 'no-name'; // default type
+	return 'visa'; // default type
 }
 /**
 	 * maskCardNumber
